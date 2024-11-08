@@ -73,32 +73,36 @@ async def book_room(data: BookingRequest):
         conn.close()
         raise HTTPException(status_code=409, detail=f"Rummet {room} är redan bokat för {tid} den {datum}. Välj en annan tid.")
 
-# GET-endpoint för att visa alla lediga rum och tider för de kommande fem vardagarna
+#GET-endpoint för att visa alla lediga rum och tider för de kommande fem vardagarna
 @app.get("/available-rooms-week", response_model=Dict[str, Dict[str, List[str]]])
 async def available_rooms_week():
     weekdays = []
     today = datetime.today()
-    while len(weekdays) < 5:
+    while len(weekdays) < 5: #Genom loopen hämta vardagar mån-fre med weekday metoden 5an där motsvarar att vi vill ha 0-4
         if today.weekday() < 5:
             weekdays.append(today.date().isoformat())
-        today += timedelta(days=1)
+        today += timedelta(days=1) #De sparas dag för dag.
 
-    conn = get_db_connection()
+    conn = get_db_connection() #Skapar anslutning till databasen
     cursor = conn.cursor()
     result = {}
 
-    for day in weekdays:
+    #För varje dag i weekdays gör vi en SQL-fråga till databasen för att hämta alla rum som är tillgängliga och deras bokningsbara tider.
+    for day in weekdays:   
         cursor.execute("SELECT room, time FROM bookings WHERE date = ? AND available = 1", (day,))
-        rows = cursor.fetchall()
+        rows = cursor.fetchall() #Dessa sparas i rows
         daily_availability = {}
         
-        for row in rows:
+        #För varje rad i rows läggs rummet och dess tid i en ordbok som vi kallat daily_availability som organiserar vilka tider
+        #som är lediga för varje rum den dagen.
+        for row in rows: 
             room = row["room"]
             tid = row["time"]
             if room not in daily_availability:
                 daily_availability[room] = []
             daily_availability[room].append(tid)
         
+        #När daily_availability fyllts med datan från databasen så sparar vi det i result med dagens datum som nyckel
         result[day] = daily_availability
     
     conn.close()
